@@ -3,8 +3,10 @@
 import React, { useState } from "react";
 import { useA11ySync } from "./provider";
 import { ATPersonaMode } from "@a11ysync/core";
+import { getPlatformShortcut } from "./utils";
 
 export const A11ySyncDrawer: React.FC = () => {
+  const shortcut = getPlatformShortcut("D");
   const {
     isDrawerOpen,
     setIsDrawerOpen,
@@ -48,9 +50,9 @@ export const A11ySyncDrawer: React.FC = () => {
           <span className="text-xl" aria-hidden="true">🛡️</span>
           <div>
             <h2 id="a11ysync-drawer-title" className="text-base font-bold text-white">
-              A11ySync Runtime Inspector
+               A11ySync Runtime Inspector
             </h2>
-            <p className="text-xs text-slate-400">WebMCP Accessibility Bridge (Alt + D)</p>
+            <p className="text-xs text-slate-400">WebMCP Accessibility Bridge ({shortcut.label})</p>
           </div>
         </div>
         <button

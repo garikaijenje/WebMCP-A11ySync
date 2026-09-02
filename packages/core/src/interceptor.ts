@@ -48,29 +48,34 @@ export class ToolExecutionInterceptor {
   ): Promise<TResult> {
     const actionLabel = tool.accessibility?.humanActionLabel || tool.description || tool.name;
 
-    // 1. Pre-Execution Telemetry & Announcement
-    this.emitTelemetry({
-      id: crypto.randomUUID(),
-      timestamp: Date.now(),
-      type: "tool_invoked",
-      toolName: tool.name,
-      summary: `Agent invoked tool: ${tool.name}`,
-      details: { params }
-    });
+    const isUserInitiated = context?.isUserInitiated === true;
 
-    const startMessage =
-      tool.accessibility?.liveAnnouncements?.onStart ||
-      `Agent is preparing to: ${actionLabel}`;
-    this.announcer.announce(startMessage, "assertive");
+    // 1. Pre-Execution Telemetry & Announcement (Only for autonomous agent invocations)
+    if (!isUserInitiated) {
+      this.emitTelemetry({
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+        type: "tool_invoked",
+        toolName: tool.name,
+        summary: `Agent invoked tool: ${tool.name}`,
+        details: { params }
+      });
 
-    // 2. Visual Ghost Cursor & Focus Snap
-    const targetElement = this.resolveTargetElement(tool);
-    if (targetElement && this.ghostCursorEnabled) {
-      this.highlightGhostTarget(targetElement, tool.name);
+      const startMessage =
+        tool.accessibility?.liveAnnouncements?.onStart ||
+        `Agent is preparing to: ${actionLabel}`;
+      this.announcer.announce(startMessage, "assertive");
+
+      // 2. Visual Ghost Cursor & Focus Snap
+      const targetElement = this.resolveTargetElement(tool);
+      if (targetElement && this.ghostCursorEnabled) {
+        this.highlightGhostTarget(targetElement, tool.name);
+      }
     }
 
-    // 3. Accessible Safe-Stop Human-in-the-Loop Gate
+    // 3. Accessible Safe-Stop Human-in-the-Loop Gate (Only for agent tool invocations)
     const requiresConfirmation =
+      !isUserInitiated &&
       this.safeStopEnabled &&
       (tool.accessibility?.requiresHumanConfirmation || this.isSensitiveTool(tool.name));
 

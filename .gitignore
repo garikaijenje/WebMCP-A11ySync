@@ -26,6 +26,11 @@ coverage/
 .env.development.local
 .env.test.local
 .env.production.local
+!.env.example
+
+# Supabase CLI Local State
+supabase/.temp/
+supabase/.branches/
 
 # Logs
 logs/

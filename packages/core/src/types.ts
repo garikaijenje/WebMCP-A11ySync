@@ -52,6 +52,7 @@ export interface ToolInputSchema {
 export interface ToolExecutionContext {
   signal?: AbortSignal;
   agentId?: string;
+  isUserInitiated?: boolean;
 }
 
 /**

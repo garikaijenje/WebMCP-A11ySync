@@ -61,9 +61,12 @@ export const A11ySyncProvider: React.FC<A11ySyncProviderProps> = ({ children, op
       }
     });
 
-    // Global keyboard shortcut for drawer (Alt + D)
+    // Global keyboard shortcut for drawer (Alt + D on Windows/Linux, Option + D on macOS)
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && (e.key === "d" || e.key === "D" || e.code === "KeyD")) {
+      if (
+        e.altKey &&
+        (e.key === "d" || e.key === "D" || e.key === "∂" || e.code === "KeyD")
+      ) {
         e.preventDefault();
         setIsDrawerOpen((prev) => !prev);
       }

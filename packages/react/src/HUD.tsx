@@ -2,9 +2,11 @@
 
 import React from "react";
 import { useA11ySync } from "./provider";
+import { getPlatformShortcut } from "./utils";
 
 export const A11ySyncHUD: React.FC = () => {
   const { tools, speechEnabled, setSpeechEnabled, setIsDrawerOpen, telemetryLogs } = useA11ySync();
+  const shortcut = getPlatformShortcut("D");
 
   const recentEvent = telemetryLogs[0];
   const isFlashing = recentEvent && (Date.now() - recentEvent.timestamp < 2000);
@@ -53,9 +55,9 @@ export const A11ySyncHUD: React.FC = () => {
         type="button"
         onClick={() => setIsDrawerOpen((prev) => !prev)}
         className="rounded bg-sky-600 hover:bg-sky-500 px-2 py-0.5 font-medium text-white transition-colors cursor-pointer"
-        aria-label="Inspect WebMCP-A11ySync Telemetry (Alt + D)"
+        aria-label={`Inspect WebMCP-A11ySync Telemetry (${shortcut.label})`}
       >
-        Inspect (Alt+D)
+        Inspect ({shortcut.symbol})
       </button>
     </aside>
   );

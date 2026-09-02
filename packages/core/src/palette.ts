@@ -34,8 +34,11 @@ export class AssistivePalette {
 
   private bindKeyboardShortcut(): void {
     this.keydownHandler = (event: KeyboardEvent) => {
-      // Shortcut: Alt + A (or Option + A)
-      if (event.altKey && (event.key === "a" || event.key === "A" || event.code === "KeyA")) {
+      // Shortcut: Alt + A (Windows/Linux) or Option + A (macOS)
+      if (
+        event.altKey &&
+        (event.key === "a" || event.key === "A" || event.key === "å" || event.code === "KeyA")
+      ) {
         event.preventDefault();
         this.toggle();
       }
@@ -137,12 +140,15 @@ export class AssistivePalette {
       })
       .join("");
 
+    const isMac = typeof navigator !== "undefined" && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform || navigator.userAgent);
+    const shortcutText = isMac ? "⌥ Option + A" : "Alt + A";
+
     this.dialog.innerHTML = `
       <div style="padding: 20px; font-family: system-ui, sans-serif;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 12px;">
           <div>
             <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: #0f172a;">Assistive Intent Palette</h2>
-            <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Direct action surface for assistive technology (Alt + A)</p>
+            <p style="margin: 2px 0 0 0; font-size: 12px; color: #64748b;">Direct action surface for assistive technology (${shortcutText})</p>
           </div>
           <button id="a11ysync-palette-close" type="button" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #64748b;" aria-label="Close Palette">
             ✕
