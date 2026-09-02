@@ -1,0 +1,39 @@
+{
+  "name": "@a11ysync/core",
+  "version": "0.1.0",
+  "description": "Bi-directional accessibility runtime and sensory bridge for WebMCP",
+  "license": "MIT",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "unpkg": "./dist/a11ysync.global.js",
+  "jsdelivr": "./dist/a11ysync.global.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.mjs"
+    },
+    "./standalone": "./dist/a11ysync.global.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src/ --max-warnings 0",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@a11ysync/config-eslint": "workspace:*",
+    "@a11ysync/config-typescript": "workspace:*",
+    "eslint": "^9.20.0",
+    "happy-dom": "^17.1.8",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.7"
+  }
+}

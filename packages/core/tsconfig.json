@@ -1,0 +1,9 @@
+{
+  "extends": "@a11ysync/config-typescript/library.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test"]
+}
