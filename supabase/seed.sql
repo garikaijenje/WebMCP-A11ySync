@@ -9,7 +9,7 @@
 
 INSERT INTO public.patients (
     id, mrn, first_name, last_name, dob, gender, primary_doctor, insurance_provider,
-    accessibility_mobility, accessibility_sensory, accessibility_communication, allergies
+    accessibility_mobility, accessibility_sensory, accessibility_communication, accessibility_support, allergies
 ) VALUES (
     'pt-sarah-jenkins',
     '#MH-88291',
@@ -22,6 +22,7 @@ INSERT INTO public.patients (
     'Wheelchair Step-Free Ramp & Wide Corridors',
     'Low Sensory Stimulation & Quiet Waiting Room',
     'Screen Reader & Audible Verification Enabled',
+    'Support Person Welcome & Extra Time',
     ARRAY['Penicillin (Severe Anaphylaxis)', 'Latex (Mild Contact Dermatitis)']
 ) ON CONFLICT (id) DO NOTHING;
 

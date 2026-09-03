@@ -29,6 +29,16 @@ describe("CareNavigator Clinical Repository", () => {
     expect(careRepository.isCloudConnected()).toBe(false);
   });
 
+  it("updates chart accommodations including the support pillar", async () => {
+    const updated = await careRepository.updateAccommodations("pt-sarah-jenkins", {
+      support: "Support Person Welcome & Extra Time, Extra time for appointments"
+    });
+    expect(updated.accessibilitySupport).toContain("Extra time for appointments");
+    await careRepository.updateAccommodations("pt-sarah-jenkins", {
+      support: "Support Person Welcome & Extra Time"
+    });
+  });
+
   it("computes clinical triage assessment with specialty recommendation", async () => {
     const assessment = await careRepository.submitTriageAssessment({
       symptoms: "Severe sharp pain in right knee joint following a fall, cannot bear weight.",

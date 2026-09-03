@@ -20,6 +20,7 @@ export const fixturePatient: PatientProfile = {
   accessibilityMobility: "Wheelchair Step-Free Ramp & Wide Corridors",
   accessibilitySensory: "Low Sensory Stimulation & Quiet Waiting Room",
   accessibilityCommunication: "Screen Reader & Audible Verification Enabled",
+  accessibilitySupport: "Support Person Welcome & Extra Time",
   allergies: ["Penicillin (Severe Anaphylaxis)", "Latex (Mild Contact Dermatitis)"]
 };
 

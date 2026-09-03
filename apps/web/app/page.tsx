@@ -11,7 +11,7 @@ import { OverviewView } from "@/components/views/OverviewView";
 import { TriageView, type Urgency } from "@/components/views/TriageView";
 import { MedicationsView } from "@/components/views/MedicationsView";
 import { ProvidersView } from "@/components/views/ProvidersView";
-import { ProfileView } from "@/components/views/ProfileView";
+import { ProfileView, type AccommodationValues } from "@/components/views/ProfileView";
 import { PHARMACY_NAMES, type CareView } from "@/components/dashboard/nav";
 import {
   careRepository,
@@ -186,17 +186,11 @@ export default function CareNavigatorPage() {
     }
   };
 
-  const handleSaveAccommodations = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+  const handleSaveAccommodations = async (values: AccommodationValues) => {
     setSavingProfile(true);
     try {
       if (patient) {
-        const updated = await careRepository.updateAccommodations(patient.id, {
-          mobility: formData.get("mobility") as string,
-          sensory: formData.get("sensory") as string,
-          communication: formData.get("communication") as string
-        });
+        const updated = await careRepository.updateAccommodations(patient.id, values);
         setPatient(updated);
         toast.success("Chart updated", { description: "Accessibility preferences saved to your record." });
       }
@@ -484,6 +478,16 @@ export default function CareNavigatorPage() {
             <ProfileView
               loading={isLoading}
               patient={patient}
+              snapshot={{
+                nextVisit: appointments[0]
+                  ? `${appointments[0].appointmentDate} at ${appointments[0].timeSlot}`
+                  : undefined,
+                activeRx: prescriptions.length,
+                refillsDue: prescriptions.filter((p) => p.status === "refill_due").length,
+                lastVitals: vitals
+                  ? `${vitals.bloodPressure} · ${vitals.heartRate} bpm (${vitals.recordedAt})`
+                  : undefined
+              }}
               saving={savingProfile}
               onSave={handleSaveAccommodations}
             />

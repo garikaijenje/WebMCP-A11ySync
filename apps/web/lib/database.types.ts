@@ -111,6 +111,7 @@ export type Database = {
           accessibility_communication: string | null
           accessibility_mobility: string | null
           accessibility_sensory: string | null
+          accessibility_support: string | null
           allergies: string[] | null
           created_at: string
           dob: string
@@ -126,6 +127,7 @@ export type Database = {
           accessibility_communication?: string | null
           accessibility_mobility?: string | null
           accessibility_sensory?: string | null
+          accessibility_support?: string | null
           allergies?: string[] | null
           created_at?: string
           dob: string
@@ -141,6 +143,7 @@ export type Database = {
           accessibility_communication?: string | null
           accessibility_mobility?: string | null
           accessibility_sensory?: string | null
+          accessibility_support?: string | null
           allergies?: string[] | null
           created_at?: string
           dob?: string

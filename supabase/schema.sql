@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS public.patients (
     accessibility_mobility TEXT DEFAULT 'Wheelchair Step-Free Ramp & Wide Corridors',
     accessibility_sensory TEXT DEFAULT 'Low Sensory Stimulation & Quiet Waiting Room',
     accessibility_communication TEXT DEFAULT 'Screen Reader & Audible Verification Enabled',
+    accessibility_support TEXT DEFAULT 'Support Person Welcome & Extra Time',
     allergies TEXT[] DEFAULT ARRAY['Penicillin (Severe)', 'Latex (Mild)'],
     created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
@@ -131,7 +132,7 @@ CREATE POLICY "Allow public all access to patient_vitals" ON public.patient_vita
 
 INSERT INTO public.patients (
     id, mrn, first_name, last_name, dob, gender, primary_doctor, insurance_provider,
-    accessibility_mobility, accessibility_sensory, accessibility_communication, allergies
+    accessibility_mobility, accessibility_sensory, accessibility_communication, accessibility_support, allergies
 ) VALUES (
     'pt-sarah-jenkins',
     '#MH-88291',
@@ -144,6 +145,7 @@ INSERT INTO public.patients (
     'Wheelchair Step-Free Ramp & Wide Corridors',
     'Low Sensory Stimulation & Quiet Waiting Room',
     'Screen Reader & Audible Verification Enabled',
+    'Support Person Welcome & Extra Time',
     ARRAY['Penicillin (Severe Anaphylaxis)', 'Latex (Mild Contact Dermatitis)']
 ) ON CONFLICT (id) DO NOTHING;
 

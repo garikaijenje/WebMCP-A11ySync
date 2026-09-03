@@ -1,4 +1,7 @@
 import { supabase, isSupabaseConfigured } from "./supabase";
+import type { Database } from "./database.types";
+
+type PatientUpdate = Database["public"]["Tables"]["patients"]["Update"];
 
 export interface PatientProfile {
   id: string;
@@ -12,6 +15,7 @@ export interface PatientProfile {
   accessibilityMobility: string;
   accessibilitySensory: string;
   accessibilityCommunication: string;
+  accessibilitySupport: string;
   allergies: string[];
 }
 
@@ -108,6 +112,7 @@ const initialPatient: PatientProfile = {
   accessibilityMobility: "Wheelchair Step-Free Ramp & Wide Corridors",
   accessibilitySensory: "Low Sensory Stimulation & Quiet Waiting Room",
   accessibilityCommunication: "Screen Reader & Audible Verification Enabled",
+  accessibilitySupport: "Support Person Welcome & Extra Time",
   allergies: ["Penicillin (Severe Anaphylaxis)", "Latex (Mild Contact Dermatitis)"]
 };
 
@@ -239,6 +244,7 @@ function mapPatient(row: DbRow): PatientProfile {
     accessibilityMobility: row.accessibility_mobility ?? "",
     accessibilitySensory: row.accessibility_sensory ?? "",
     accessibilityCommunication: row.accessibility_communication ?? "",
+    accessibilitySupport: row.accessibility_support ?? "",
     allergies: row.allergies ?? []
   };
 }
@@ -382,23 +388,23 @@ export const careRepository = {
 
   async updateAccommodations(
     patientId: string,
-    updates: { mobility?: string; sensory?: string; communication?: string }
+    updates: { mobility?: string; sensory?: string; communication?: string; support?: string }
   ): Promise<PatientProfile> {
     const next = { ...statePatient };
-    if (updates.mobility) next.accessibilityMobility = updates.mobility;
-    if (updates.sensory) next.accessibilitySensory = updates.sensory;
-    if (updates.communication) next.accessibilityCommunication = updates.communication;
+    if (updates.mobility !== undefined) next.accessibilityMobility = updates.mobility;
+    if (updates.sensory !== undefined) next.accessibilitySensory = updates.sensory;
+    if (updates.communication !== undefined) next.accessibilityCommunication = updates.communication;
+    if (updates.support !== undefined) next.accessibilitySupport = updates.support;
 
     const client = db();
     if (client) {
-      const { error } = await client
-        .from("patients")
-        .update({
-          accessibility_mobility: next.accessibilityMobility,
-          accessibility_sensory: next.accessibilitySensory,
-          accessibility_communication: next.accessibilityCommunication
-        })
-        .eq("id", patientId);
+      const payload: PatientUpdate = {};
+      if (updates.mobility !== undefined) payload.accessibility_mobility = next.accessibilityMobility;
+      if (updates.sensory !== undefined) payload.accessibility_sensory = next.accessibilitySensory;
+      if (updates.communication !== undefined)
+        payload.accessibility_communication = next.accessibilityCommunication;
+      if (updates.support !== undefined) payload.accessibility_support = next.accessibilitySupport;
+      const { error } = await client.from("patients").update(payload).eq("id", patientId);
       if (error) {
         console.warn("[careRepository] updateAccommodations DB error:", error.message);
       } else {

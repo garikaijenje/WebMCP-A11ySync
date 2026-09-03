@@ -42,3 +42,32 @@ export async function seedCounts() {
     triage: triage.count ?? -1
   };
 }
+
+/** Pristine seed chart accommodations (mirrors supabase/seed.sql). */
+export const SEED_ACCOMMODATIONS = {
+  accessibility_mobility: "Wheelchair Step-Free Ramp & Wide Corridors",
+  accessibility_sensory: "Low Sensory Stimulation & Quiet Waiting Room",
+  accessibility_communication: "Screen Reader & Audible Verification Enabled",
+  accessibility_support: "Support Person Welcome & Extra Time"
+};
+
+export async function getPatientAccommodations() {
+  const { data, error } = await db
+    .from("patients")
+    .select(
+      "accessibility_mobility,accessibility_sensory,accessibility_communication,accessibility_support"
+    )
+    .eq("id", "pt-sarah-jenkins")
+    .single();
+  if (error) throw new Error(`patient read failed: ${error.message}`);
+  return data;
+}
+
+/** Restores the seed chart after profile e2e writes. */
+export async function restorePatientAccommodations() {
+  const { error } = await db
+    .from("patients")
+    .update(SEED_ACCOMMODATIONS)
+    .eq("id", "pt-sarah-jenkins");
+  if (error) throw new Error(`patient restore failed: ${error.message}`);
+}
