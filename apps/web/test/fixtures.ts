@@ -77,7 +77,7 @@ export const fixturePractitioners: Practitioner[] = [
     facilityAddress: "1200 Healthcare Way, Suite 4B, Metro",
     distance: "0.8 miles away",
     accommodations: ["Wheelchair Step-Free", "Sensory Quiet Room"],
-    availableSlots: ["Friday, Sep 18 at 10:30 AM", "Monday, Sep 21 at 9:00 AM"]
+    availableSlots: ["Friday, Sep 18 at 10:30 AM", "Friday, Sep 18 at 2:00 PM", "Monday, Sep 21 at 9:00 AM"]
   }
 ];
 

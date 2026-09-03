@@ -17,6 +17,9 @@ export async function cleanupE2EWrites() {
   if (triage.error) throw new Error(`triage cleanup failed: ${triage.error.message}`);
   const orders = await db.from("refill_orders").delete().neq("id", "__none__");
   if (orders.error) throw new Error(`orders cleanup failed: ${orders.error.message}`);
+  // Bookings created by e2e (seed appointment appt-init-01 is preserved)
+  const appts = await db.from("appointments").delete().neq("id", "appt-init-01");
+  if (appts.error) throw new Error(`appointments cleanup failed: ${appts.error.message}`);
   // Restore the seed prescription mutated by the refill flow
   const rx = await db
     .from("prescriptions")

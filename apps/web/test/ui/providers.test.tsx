@@ -69,8 +69,7 @@ describe("ProvidersView", () => {
     expect(onBook).toHaveBeenCalledWith(fixturePractitioners[0], "Friday, Sep 18 at 10:30 AM");
   });
 
-  it("shows an empty state when no clinics match", () => {
-    render(
+  it("shows an empty state when no clinics match", () => {    render(
       <ProvidersView
         loading={false}
         practitioners={[]}
@@ -84,5 +83,26 @@ describe("ProvidersView", () => {
       />
     );
     expect(screen.getByText("No matching clinics")).toBeInTheDocument();
+  });
+
+  it("opens the Calendly-style picker from a provider card", async () => {
+    const user = userEvent.setup();
+    render(
+      <ProvidersView
+        loading={false}
+        practitioners={fixturePractitioners}
+        specialtyQuery=""
+        setSpecialtyQuery={noop}
+        accFilter={[]}
+        setAccFilter={noop}
+        onFilter={noop}
+        booking={false}
+        onBook={noop}
+      />
+    );
+    await user.click(screen.getByRole("button", { name: /open calendar for dr. marcus vance/i }));
+    expect(await screen.findByText("Select date and time")).toBeInTheDocument();
+    expect(screen.getByText("September 2026")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "10:30 AM" })).toBeInTheDocument();
   });
 });

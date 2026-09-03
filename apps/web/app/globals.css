@@ -65,6 +65,20 @@
   outline-offset: 2px;
 }
 
+/* Contained focus ring for command-palette search fields. These inputs sit
+   flush against popover/dialog edges, where the global 3px outset outline
+   would bleed outside the surface — so they paint an inset ring instead,
+   still unmissable for keyboard and switch users. */
+.cmdk-input-focus:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px #0284c7;
+  border-radius: 8px;
+}
+
+html.dark .cmdk-input-focus:focus-visible {
+  box-shadow: inset 0 0 0 2px #38bdf8;
+}
+
 /* WebMCP-A11ySync Ghost Cursor Highlighting */
 .a11ysync-ghost-target {
   outline: 3px solid #0284c7 !important;

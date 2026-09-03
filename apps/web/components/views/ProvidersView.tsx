@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Building2, CalendarCheck, CheckCircle2, MapPin, Search } from "lucide-react";
+import { Building2, CalendarCheck, CalendarDays, CheckCircle2, MapPin, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import {
 import { Combobox } from "@/components/ui/combobox";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { EmptyState, PageHeading } from "@/components/dashboard/widgets";
+import { SlotPicker, type SlotSelection } from "@/components/scheduling/SlotPicker";
 import { ACCOMMODATION_OPTIONS, SPECIALTY_OPTIONS } from "@/components/dashboard/nav";
 import type { Practitioner } from "@/lib/careRepository";
 
@@ -43,7 +44,13 @@ export function ProvidersView({
   booking,
   onBook
 }: ProvidersViewProps) {
-  const [confirm, setConfirm] = React.useState<{ doc: Practitioner; slot: string } | null>(null);
+  const [confirm, setConfirm] = React.useState<{ doc: Practitioner; slot: string; displayLabel?: string } | null>(null);
+  const [pickerDoc, setPickerDoc] = React.useState<Practitioner | null>(null);
+
+  const chooseSlot = (doc: Practitioner, selection: SlotSelection) => {
+    setPickerDoc(null);
+    setConfirm({ doc, slot: selection.slot, displayLabel: selection.displayLabel });
+  };
 
   return (
     <div className="space-y-6">
@@ -143,7 +150,19 @@ export function ProvidersView({
                   ))}
                 </div>
                 <div className="space-y-2 border-t pt-3">
-                  <div className="text-xs font-semibold">Available slots</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-semibold">Available slots</div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 gap-1 px-2 text-xs text-sky-700 dark:text-sky-300"
+                      aria-label={`Open calendar for ${doc.name}`}
+                      onClick={() => setPickerDoc(doc)}
+                    >
+                      <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+                      Calendar
+                    </Button>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     {doc.availableSlots.map((slot, sIdx) => (
                       <Button
@@ -166,6 +185,21 @@ export function ProvidersView({
         </div>
       )}
 
+      {/* Calendly-style availability picker */}
+      <Dialog open={pickerDoc !== null} onOpenChange={(open) => !open && setPickerDoc(null)}>
+        <DialogContent className="max-w-3xl" aria-label="Select appointment date and time">
+          <DialogHeader>
+            <DialogTitle>Select date and time</DialogTitle>
+            <DialogDescription>
+              {pickerDoc ? `${pickerDoc.name} · ${pickerDoc.facilityName}` : "Choose an open slot"}
+            </DialogDescription>
+          </DialogHeader>
+          {pickerDoc && (
+            <SlotPicker practitioner={pickerDoc} onSelect={(selection) => chooseSlot(pickerDoc, selection)} />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Booking confirmation */}
       <Dialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
         <DialogContent>
@@ -187,7 +221,7 @@ export function ProvidersView({
               </div>
               <div className="flex justify-between gap-2">
                 <span className="text-muted-foreground">Slot</span>
-                <span className="text-right font-semibold">{confirm.slot}</span>
+                <span className="text-right font-semibold">{confirm.displayLabel ?? confirm.slot}</span>
               </div>
               <div className="border-t pt-2">
                 <span className="text-muted-foreground">Accommodations sent</span>
