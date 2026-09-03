@@ -63,15 +63,42 @@ export class WebMCPBridge {
           this.onRegisterCallback(wrappedTool as ToolDefinition);
         }
 
-        // Call native registerTool if present
+        // Call native registerTool if present, handling duplicate name collisions gracefully
         if (existingContext && typeof existingContext.registerTool === "function") {
-          return existingContext.registerTool(wrappedTool, options);
+          try {
+            return await existingContext.registerTool(wrappedTool, options);
+          } catch (err: unknown) {
+            const isDuplicate =
+              (err instanceof Error &&
+                (err.name === "InvalidStateError" ||
+                  err.message.toLowerCase().includes("duplicate") ||
+                  err.message.toLowerCase().includes("already registered"))) ||
+              (typeof err === "object" && err !== null && "name" in err && (err as { name: string }).name === "InvalidStateError");
+
+            if (isDuplicate) {
+              try {
+                if (typeof existingContext.unregisterTool === "function") {
+                  await existingContext.unregisterTool(tool.name);
+                  return await existingContext.registerTool(wrappedTool, options);
+                }
+              } catch {
+                // If extension/browser already has it registered, continue cleanly
+                return;
+              }
+            } else {
+              throw err;
+            }
+          }
         }
       },
       unregisterTool: async (name: string) => {
         this.registeredTools.delete(name);
         if (existingContext && typeof existingContext.unregisterTool === "function") {
-          return existingContext.unregisterTool(name);
+          try {
+            return await existingContext.unregisterTool(name);
+          } catch {
+            // Ignore native unregister errors if not found
+          }
         }
       },
       listTools: () => {

@@ -1,7 +1,9 @@
 /**
  * A11ySync Announcer: Sensory Live Region & Web Speech Engine
- * Coordinates WCAG aria-live polite and assertive alerts with audible speech telemetry.
+ * Coordinates WCAG aria-live polite and assertive alerts with audible speech telemetry and Web Audio earcons.
  */
+
+import { EarconSynthesizer, EarconType } from "./earcon";
 
 export interface AnnouncerOptions {
   speechEnabled?: boolean;
@@ -16,15 +18,27 @@ export class SensoryAnnouncer {
   private speechVolume: number;
   private speechRate: number;
   private isBrowser: boolean;
+  private earconSynthesizer: EarconSynthesizer;
+  private onAnnouncementListeners: Set<(message: string, urgency: "polite" | "assertive") => void> = new Set();
 
   constructor(options: AnnouncerOptions = {}) {
     this.speechEnabled = options.speechEnabled ?? true;
     this.speechVolume = options.speechVolume ?? 1;
-    this.speechRate = options.speechRate ?? 1.1;
+    this.speechRate = options.speechRate ?? 1.05;
     this.isBrowser = typeof window !== "undefined" && typeof document !== "undefined";
+    this.earconSynthesizer = new EarconSynthesizer();
 
     if (this.isBrowser) {
       this.ensureLiveRegions();
+      // Pre-warm voices on browsers where getVoices() loads asynchronously
+      if (typeof window.speechSynthesis !== "undefined") {
+        window.speechSynthesis.getVoices();
+        if (window.speechSynthesis.onvoiceschanged !== undefined) {
+          window.speechSynthesis.onvoiceschanged = () => {
+            window.speechSynthesis.getVoices();
+          };
+        }
+      }
     }
   }
 
@@ -72,7 +86,7 @@ export class SensoryAnnouncer {
   }
 
   /**
-   * Broadcasts an announcement to assistive technology and optional speech synthesis
+   * Broadcasts an announcement to assistive technology, visual captions, earcons, and speech synthesis
    */
   public announce(message: string, urgency: "polite" | "assertive" = "assertive"): void {
     if (!this.isBrowser || !message) return;
@@ -81,7 +95,7 @@ export class SensoryAnnouncer {
     const targetRegion = urgency === "assertive" ? this.assertiveRegion : this.politeRegion;
 
     if (targetRegion) {
-      // Clear and re-populate to ensure screen readers fire the mutation
+      // Clear and re-populate to ensure screen readers detect the mutation
       targetRegion.textContent = "";
       setTimeout(() => {
         if (targetRegion) {
@@ -90,19 +104,102 @@ export class SensoryAnnouncer {
       }, 50);
     }
 
+    // Broadcast to UI visual caption subscribers (for virtual screen reader captions)
+    this.onAnnouncementListeners.forEach((listener) => {
+      try {
+        listener(message, urgency);
+      } catch {
+        // Suppress listener error
+      }
+    });
+
+    // 1. Play Web Audio earcon chime
+    if (this.speechEnabled) {
+      this.earconSynthesizer.play(urgency === "assertive" ? "assertive" : "polite");
+    }
+
+    // 2. Audible speech telemetry
     if (this.speechEnabled && typeof window.speechSynthesis !== "undefined") {
       this.speakAudibly(message);
     }
   }
 
+  public playEarcon(type: EarconType): void {
+    this.earconSynthesizer.play(type);
+  }
+
+  public onAnnouncement(listener: (message: string, urgency: "polite" | "assertive") => void): () => void {
+    this.onAnnouncementListeners.add(listener);
+    return () => {
+      this.onAnnouncementListeners.delete(listener);
+    };
+  }
+
+  private speakTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  public testSound(): void {
+    this.earconSynthesizer.unlockContext();
+    this.earconSynthesizer.play("persona");
+    if (typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined") {
+      this.speakAudibly("A11ySync sound and speech telemetry operational.");
+    }
+  }
+
   private speakAudibly(message: string): void {
     try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(message);
-      utterance.volume = this.speechVolume;
-      utterance.rate = this.speechRate;
-      utterance.pitch = 1.0;
-      window.speechSynthesis.speak(utterance);
+      if (typeof window === "undefined" || typeof window.speechSynthesis === "undefined") return;
+
+      const synth = window.speechSynthesis;
+
+      // Resume if engine paused
+      if (synth.paused) {
+        synth.resume();
+      }
+
+      const executeSpeak = () => {
+        try {
+          if (synth.paused) {
+            synth.resume();
+          }
+
+          const utterance = new SpeechSynthesisUtterance(message);
+          utterance.volume = 1.0;
+          utterance.rate = this.speechRate || 1.0;
+          utterance.pitch = 1.0;
+          utterance.lang = "en-US";
+
+          // Retain reference on window to defeat Chromium V8 garbage collection bug
+          const win = window as unknown as { _a11ysync_utterances?: SpeechSynthesisUtterance[] };
+          win._a11ysync_utterances = win._a11ysync_utterances || [];
+          win._a11ysync_utterances.push(utterance);
+
+          const cleanup = () => {
+            if (win._a11ysync_utterances) {
+              const idx = win._a11ysync_utterances.indexOf(utterance);
+              if (idx !== -1) win._a11ysync_utterances.splice(idx, 1);
+            }
+          };
+          utterance.onend = cleanup;
+          utterance.onerror = (e) => {
+            console.warn("[A11ySync] Speech error:", e);
+            cleanup();
+          };
+
+          synth.speak(utterance);
+        } catch (err) {
+          console.warn("[A11ySync] Speech execution error:", err);
+        }
+      };
+
+      // In Chrome: NEVER call cancel() immediately before speak() on the same tick!
+      // If already speaking, cancel and delay 120ms to allow audio backend teardown
+      if (synth.speaking) {
+        synth.cancel();
+        if (this.speakTimeout) clearTimeout(this.speakTimeout);
+        this.speakTimeout = setTimeout(executeSpeak, 120);
+      } else {
+        executeSpeak();
+      }
     } catch {
       // Gracefully ignore audio errors in restricted/headless contexts
     }
@@ -130,5 +227,6 @@ export class SensoryAnnouncer {
     if (typeof window.speechSynthesis !== "undefined") {
       window.speechSynthesis.cancel();
     }
+    this.onAnnouncementListeners.clear();
   }
 }

@@ -73,19 +73,60 @@
   transition: all 0.2s ease-in-out !important;
 }
 
-/* Low-vision Persona mode styles */
-[data-a11ysync-persona="low-vision"] :focus-visible {
-  outline: 5px solid #f59e0b !important;
+/* ============================================================================== */
+/* Multi-Modal Persona 1: Low-Vision Mode (High Contrast & Magnified Focus) */
+/* ============================================================================== */
+[data-a11ysync-persona="low-vision"] body {
+  font-size: 108% !important;
+  line-height: 1.65 !important;
+}
+
+[data-a11ysync-persona="low-vision"] :focus-visible,
+[data-a11ysync-persona="low-vision"] button:focus-visible,
+[data-a11ysync-persona="low-vision"] input:focus-visible,
+[data-a11ysync-persona="low-vision"] [role="button"]:focus-visible,
+[data-a11ysync-persona="low-vision"] [tabindex="0"]:focus-visible {
+  outline: 4px solid #facc15 !important;
   outline-offset: 4px !important;
+  box-shadow: 0 0 0 6px rgba(0, 0, 0, 0.95), 0 0 25px #facc15 !important;
 }
 
 [data-a11ysync-persona="low-vision"] .a11ysync-ghost-target {
   outline: 6px solid #e11d48 !important;
-  box-shadow: 0 0 0 10px rgba(225, 29, 72, 0.4) !important;
+  box-shadow: 0 0 0 10px rgba(225, 29, 72, 0.5), 0 0 35px #e11d48 !important;
 }
 
-/* Single-Switch Persona mode styles */
-[data-a11ysync-persona="single-switch"] :focus {
-  outline: 4px solid #8b5cf6 !important;
-  background-color: rgba(139, 92, 246, 0.1) !important;
+/* ============================================================================== */
+/* Multi-Modal Persona 2: Single-Switch Motor Scanning */
+/* ============================================================================== */
+[data-a11ysync-persona="single-switch"] :focus,
+.a11ysync-switch-active {
+  outline: 4px solid #22c55e !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 6px rgba(0, 0, 0, 0.9), 0 0 25px rgba(34, 197, 94, 0.8) !important;
+  background-color: rgba(34, 197, 94, 0.08) !important;
+  transition: transform 0.15s ease-in-out !important;
+}
+
+/* ============================================================================== */
+/* Multi-Modal Persona 3: Cognitive Calm & Sensory Ease */
+/* ============================================================================== */
+[data-a11ysync-persona="cognitive"] * {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+[data-a11ysync-persona="cognitive"] body {
+  line-height: 1.8 !important;
+  letter-spacing: 0.025em !important;
+}
+
+/* ============================================================================== */
+/* Multi-Modal Persona 4: Screen Reader Output Styling */
+/* ============================================================================== */
+[data-a11ysync-persona="screen-reader"] body {
+  outline: 2px dashed rgba(56, 189, 248, 0.3);
+  outline-offset: -2px;
 }

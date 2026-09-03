@@ -187,7 +187,7 @@ export const A11ySyncDrawer: React.FC = () => {
                 onClick={() => engine?.getPalette().open()}
                 className="w-full rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-medium py-2 text-xs transition-colors cursor-pointer"
               >
-                Open Assistive Command Palette (Alt + A)
+                Open Assistive Command Palette ({getPlatformShortcut("A").label})
               </button>
             </div>
           </div>
@@ -213,10 +213,10 @@ export const A11ySyncDrawer: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setTrojanEnabled(!trojanEnabled)}
-                className={`rounded-full px-3 py-1 text-xs font-semibold cursor-pointer transition-colors ${
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                   trojanEnabled
-                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                    : "bg-rose-500/20 text-rose-400 border border-rose-500/40"
+                    ? "bg-emerald-600 text-white hover:bg-emerald-500"
+                    : "bg-rose-600 text-white hover:bg-rose-500"
                 }`}
               >
                 {trojanEnabled ? "🟢 Synthesizer ON" : "🔴 Synthesizer OFF"}
@@ -249,6 +249,21 @@ export const A11ySyncDrawer: React.FC = () => {
               </button>
             </div>
 
+            {/* Direct Sound Test Bar */}
+            <div className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-sky-800/60 bg-sky-950/30">
+              <div className="text-xs">
+                <span className="font-semibold text-sky-300">Auditory Earcons & Speech</span>
+                <p className="text-[10px] text-slate-400">Plays Web Audio synthesizer chimes & spoken alerts</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => engine?.testSound()}
+                className="px-3 py-1.5 rounded-md bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold cursor-pointer transition-colors shadow"
+              >
+                🔊 Test Sound
+              </button>
+            </div>
+
             <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
               {telemetryLogs.map((log) => (
                 <div key={log.id} className="rounded border border-slate-800/80 bg-slate-900/70 p-2 text-xs">
@@ -269,32 +284,72 @@ export const A11ySyncDrawer: React.FC = () => {
             <div>
               <h3 className="text-sm font-semibold text-purple-400">Simulate Assistive Technology Personas</h3>
               <p className="text-xs text-slate-400 mt-1">
-                Experience how WebMCP-A11ySync adapts for different user disability requirements.
+                Experience how WebMCP-A11ySync adapts for different user disability requirements with live styling and behavior shifts.
               </p>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {[
-                { id: "standard", name: "Standard User", desc: "Default balanced UI with full agent actuation." },
-                { id: "screen-reader", name: "Screen Reader User", desc: "Audio-first telemetry with assertive live-region speech." },
-                { id: "single-switch", name: "Single-Switch / Motor Impaired", desc: "Spacebar step-through navigation and direct command palette." },
-                { id: "low-vision", name: "Low-Vision User", desc: "High-contrast ghost cursor outlines and glowing focus markers." },
-                { id: "cognitive", name: "Cognitive Load Ease", desc: "Distraction-free layout and simplified action confirmation." }
-              ].map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setPersona(p.id as ATPersonaMode)}
-                  className={`w-full text-left rounded-lg p-3 border transition-all cursor-pointer ${
-                    persona === p.id
-                      ? "border-purple-500 bg-purple-950/30 text-white"
-                      : "border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700"
-                  }`}
-                >
-                  <div className="font-semibold text-xs">{p.name}</div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">{p.desc}</div>
-                </button>
-              ))}
+                {
+                  id: "standard",
+                  name: "Standard User",
+                  desc: "Default balanced UI with full agent actuation.",
+                  tag: "Default"
+                },
+                {
+                  id: "screen-reader",
+                  name: "Screen Reader / Audio User",
+                  desc: "Speaks all tool actions aloud in real time using screen reader voice and earcons.",
+                  tag: "Spoken Audio"
+                },
+                {
+                  id: "single-switch",
+                  name: "Single-Switch / Motor Impaired",
+                  desc: "Spacebar sequential element scanning with pulsing green highlight.",
+                  tag: "Spacebar Scanner"
+                },
+                {
+                  id: "low-vision",
+                  name: "Low-Vision User",
+                  desc: "High-contrast yellow focus rings, 110% text scaling, and thick borders.",
+                  tag: "High Contrast"
+                },
+                {
+                  id: "cognitive",
+                  name: "Cognitive Load Ease",
+                  desc: "Zero animations, reduced sensory clutter, and task-focused legibility.",
+                  tag: "Calm & Focused"
+                }
+              ].map((p) => {
+                const isSelected = persona === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setPersona(p.id as ATPersonaMode)}
+                    className={`w-full text-left rounded-lg p-3 border transition-all cursor-pointer ${
+                      isSelected
+                        ? "border-purple-500 bg-purple-950/40 text-white shadow-lg shadow-purple-950/50 ring-1 ring-purple-500"
+                        : "border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 hover:bg-slate-800/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold text-xs text-white">{p.name}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">
+                          {p.tag}
+                        </span>
+                        {isSelected && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-1">{p.desc}</div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

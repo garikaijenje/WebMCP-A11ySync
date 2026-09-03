@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start --port 4117",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@a11ysync/core": "workspace:*",
@@ -36,6 +37,7 @@
     "eslint-config-next": "^15.2.1",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.7"
   }
 }

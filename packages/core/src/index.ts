@@ -23,6 +23,8 @@ export { AssistivePalette } from "./palette";
 export { ToolExecutionInterceptor } from "./interceptor";
 export { WebMCPBridge } from "./webmcp";
 export { AgentSimulator } from "./simulator";
+export { PersonaController } from "./persona";
+export { EarconSynthesizer } from "./earcon";
 
 export type {
   ToolDefinition,

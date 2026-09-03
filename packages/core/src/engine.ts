@@ -17,6 +17,7 @@ import { TrojanSynthesizer } from "./synthesizer";
 import { AssistivePalette } from "./palette";
 import { WebMCPBridge } from "./webmcp";
 import { AgentSimulator } from "./simulator";
+import { PersonaController } from "./persona";
 
 export class A11ySyncEngine {
   private static instance: A11ySyncEngine | null = null;
@@ -28,6 +29,7 @@ export class A11ySyncEngine {
   private palette: AssistivePalette;
   private bridge: WebMCPBridge;
   private simulator: AgentSimulator;
+  private personaController: PersonaController;
   private telemetrySubscribers: Set<(event: A11ySyncTelemetryEvent) => void> = new Set();
   private mutationObserver: MutationObserver | null = null;
   private isBrowser: boolean;
@@ -81,6 +83,9 @@ export class A11ySyncEngine {
 
     // 7. Initialize Agent Simulator
     this.simulator = new AgentSimulator(this.bridge);
+
+    // 8. Initialize Multi-Modal Persona Controller
+    this.personaController = new PersonaController(this.announcer);
 
     if (this.options.onTelemetry) {
       this.telemetrySubscribers.add(this.options.onTelemetry);
@@ -205,29 +210,7 @@ export class A11ySyncEngine {
 
   public setPersonaMode(mode: ATPersonaMode): void {
     this.options.personaMode = mode;
-    if (!this.isBrowser) return;
-
-    // Apply persona-specific enhancements
-    const root = document.documentElement;
-    root.setAttribute("data-a11ysync-persona", mode);
-
-    switch (mode) {
-      case "screen-reader":
-        this.announcer.setSpeechEnabled(true);
-        this.announcer.announce("Screen reader mode active. Audio telemetry enabled.", "assertive");
-        break;
-      case "low-vision":
-        this.announcer.announce("High-contrast and enhanced focus boundaries enabled.", "polite");
-        break;
-      case "single-switch":
-        this.announcer.announce("Single-switch accessibility mode active. Spacebar navigation ready.", "polite");
-        break;
-      case "cognitive":
-        this.announcer.announce("Cognitive focus mode active. Simplified sensory feedback enabled.", "polite");
-        break;
-      default:
-        break;
-    }
+    this.personaController.setMode(mode);
 
     this.broadcastTelemetry({
       id: crypto.randomUUID(),
@@ -236,6 +219,14 @@ export class A11ySyncEngine {
       summary: `Switched AT persona to ${mode}`,
       details: { mode }
     });
+  }
+
+  public getPersonaController(): PersonaController {
+    return this.personaController;
+  }
+
+  public testSound(): void {
+    this.announcer.testSound();
   }
 
   public onTelemetry(callback: (event: A11ySyncTelemetryEvent) => void): () => void {
@@ -257,6 +248,7 @@ export class A11ySyncEngine {
 
   public cleanup(): void {
     this.mutationObserver?.disconnect();
+    this.personaController.cleanup();
     this.announcer.cleanup();
     this.safeStopController.cleanup();
     this.palette.cleanup();

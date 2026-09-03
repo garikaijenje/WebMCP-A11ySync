@@ -73,6 +73,10 @@ export class AssistivePalette {
     }
   }
 
+  public isOpen(): boolean {
+    return Boolean(this.dialog?.open);
+  }
+
   private ensureDialogElement(): HTMLDialogElement {
     let dialog = document.getElementById("a11ysync-palette-dialog") as HTMLDialogElement | null;
     if (!dialog) {

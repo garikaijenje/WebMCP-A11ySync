@@ -309,6 +309,13 @@ export default function CareNavigatorPage() {
         return newAppt;
       }
     });
+
+    return () => {
+      window.document.modelContext?.unregisterTool?.("triage_specialist");
+      window.document.modelContext?.unregisterTool?.("find_accessible_clinic");
+      window.document.modelContext?.unregisterTool?.("request_prescription_refill");
+      window.document.modelContext?.unregisterTool?.("confirm_appointment");
+    };
   }, [engine, patient, bodyRegion, painLevel, triageUrgency]);
 
   // Handle saving accessibility profile
