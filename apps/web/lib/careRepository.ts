@@ -91,7 +91,11 @@ export interface PatientVitals {
   recordedAt: string;
 }
 
-// Initial clinical seed data
+export const DEFAULT_PATIENT_ID = "pt-sarah-jenkins";
+
+// Initial clinical seed data (offline cache — mirrors supabase/migrations seed).
+// Primary source of truth is Supabase Postgres; this cache is only used when
+// Supabase is unconfigured or a query fails.
 const initialPatient: PatientProfile = {
   id: "pt-sarah-jenkins",
   mrn: "#MH-88291",
@@ -210,7 +214,7 @@ const initialVitals: PatientVitals = {
   recordedAt: "Today at 8:45 AM"
 };
 
-// Local Reactive State Store
+// Local offline cache (fallback only — DB is authoritative when configured)
 let statePatient = { ...initialPatient };
 let statePractitioners = [...initialPractitioners];
 let stateAppointments = [...initialAppointments];
@@ -218,135 +222,292 @@ let statePrescriptions = [...initialPrescriptions];
 let stateRefillOrders: RefillOrder[] = [];
 let stateTriageAssessments: TriageAssessment[] = [];
 
-// ==============================================================================
-// CareNavigator Repository API
-// ==============================================================================
+// Supabase PostgREST rows are untyped JSON; Database types in database.types.ts
+// keep queries type-safe at the call site, mappers normalize to app models.
+type DbRow = Record<string, any>;
 
+function mapPatient(row: DbRow): PatientProfile {
+  return {
+    id: row.id,
+    mrn: row.mrn,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    dob: row.dob,
+    gender: row.gender ?? "",
+    primaryDoctor: row.primary_doctor,
+    insuranceProvider: row.insurance_provider,
+    accessibilityMobility: row.accessibility_mobility ?? "",
+    accessibilitySensory: row.accessibility_sensory ?? "",
+    accessibilityCommunication: row.accessibility_communication ?? "",
+    allergies: row.allergies ?? []
+  };
+}
+
+function mapPractitioner(row: DbRow): Practitioner {
+  return {
+    id: row.id,
+    name: row.name,
+    title: row.title,
+    specialty: row.specialty,
+    facilityName: row.facility_name,
+    facilityAddress: row.facility_address,
+    distance: row.distance,
+    accommodations: row.accommodations ?? [],
+    availableSlots: row.available_slots ?? []
+  };
+}
+
+function mapAppointment(row: DbRow): Appointment {
+  return {
+    id: row.id,
+    patientId: row.patient_id,
+    practitionerId: row.practitioner_id ?? "",
+    doctorName: row.doctor_name,
+    facilityName: row.facility_name,
+    appointmentDate: row.appointment_date,
+    timeSlot: row.time_slot,
+    status: row.status,
+    accommodationNotes: row.accommodation_notes ?? undefined,
+    createdAt: row.created_at
+  };
+}
+
+function mapPrescription(row: DbRow): Prescription {
+  return {
+    id: row.id,
+    patientId: row.patient_id,
+    medicationName: row.medication_name,
+    strength: row.strength,
+    rxNumber: row.rx_number,
+    refillsRemaining: row.refills_remaining ?? 0,
+    prescribedBy: row.prescribed_by,
+    pharmacyName: row.pharmacy_name,
+    copay: row.copay,
+    status: row.status,
+    lastFilled: row.last_filled ?? ""
+  };
+}
+
+function mapRefillOrder(row: DbRow): RefillOrder {
+  return {
+    id: row.id,
+    prescriptionId: row.prescription_id,
+    patientId: row.patient_id,
+    medicationName: row.medication_name,
+    dosage: row.dosage,
+    pharmacyId: row.pharmacy_id,
+    pharmacyName: row.pharmacy_name,
+    status: row.status,
+    readyTime: row.ready_time,
+    copay: row.copay,
+    requestedAt: row.requested_at
+  };
+}
+
+function mapTriage(row: DbRow): TriageAssessment {
+  return {
+    id: row.id,
+    patientId: row.patient_id,
+    symptoms: row.symptoms,
+    bodyRegion: row.body_region ?? "",
+    painLevel: row.pain_level,
+    urgency: row.urgency,
+    recommendedSpecialty: row.recommended_specialty,
+    clinicalAdvice: row.clinical_advice,
+    recommendedClinic: row.recommended_clinic,
+    createdAt: row.created_at
+  };
+}
+
+function mapVitals(row: DbRow): PatientVitals {
+  const recorded = row.recorded_at ? new Date(row.recorded_at) : new Date();
+  const now = new Date();
+  const sameDay = recorded.toDateString() === now.toDateString();
+  const time = recorded.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return {
+    id: row.id,
+    patientId: row.patient_id,
+    bloodPressure: row.blood_pressure,
+    heartRate: row.heart_rate,
+    oxygenSaturation: row.oxygen_saturation,
+    respiratoryRate: row.respiratory_rate,
+    recordedAt: sameDay ? `Today at ${time}` : recorded.toLocaleString()
+  };
+}
+
+function matchesAccommodations(p: Practitioner, filters?: string[]): boolean {
+  if (!filters || filters.length === 0) return true;
+  return filters.some((acc) =>
+    p.accommodations.some((pAcc) => pAcc.toLowerCase().includes(acc.toLowerCase()))
+  );
+}
+
+function db(): typeof supabase {
+  return isSupabaseConfigured ? supabase : null;
+}
+
+// ==============================================================================
+// CareNavigator Repository API — Supabase Postgres is the source of truth.
+// Local state is an offline fallback cache only.
+// ==============================================================================
 export const careRepository = {
   isCloudConnected: () => isSupabaseConfigured,
 
+  /** Lightweight connectivity probe (env configured AND DB reachable). */
+  async probeConnection(): Promise<boolean> {
+    const client = db();
+    if (!client) return false;
+    const { error } = await client.from("patients").select("id").limit(1);
+    return !error;
+  },
+
   // 1. Patient Profile & Accommodations
-  async getPatientProfile(patientId: string = "pt-sarah-jenkins"): Promise<PatientProfile> {
-    if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
+  async getPatientProfile(patientId: string = DEFAULT_PATIENT_ID): Promise<PatientProfile> {
+    const client = db();
+    if (client) {
+      const { data, error } = await client
         .from("patients")
         .select("*")
         .eq("id", patientId)
         .single();
       if (!error && data) {
-        return {
-          id: data.id,
-          mrn: data.mrn,
-          firstName: data.first_name,
-          lastName: data.last_name,
-          dob: data.dob,
-          gender: data.gender,
-          primaryDoctor: data.primary_doctor,
-          insuranceProvider: data.insurance_provider,
-          accessibilityMobility: data.accessibility_mobility,
-          accessibilitySensory: data.accessibility_sensory,
-          accessibilityCommunication: data.accessibility_communication,
-          allergies: data.allergies || []
-        };
+        const mapped = mapPatient(data);
+        statePatient = { ...mapped };
+        return mapped;
       }
+      console.warn("[careRepository] getPatientProfile DB miss, using cache:", error?.message);
     }
-    return statePatient;
+    return { ...statePatient };
   },
 
   async updateAccommodations(
     patientId: string,
     updates: { mobility?: string; sensory?: string; communication?: string }
   ): Promise<PatientProfile> {
-    if (updates.mobility) statePatient.accessibilityMobility = updates.mobility;
-    if (updates.sensory) statePatient.accessibilitySensory = updates.sensory;
-    if (updates.communication) statePatient.accessibilityCommunication = updates.communication;
+    const next = { ...statePatient };
+    if (updates.mobility) next.accessibilityMobility = updates.mobility;
+    if (updates.sensory) next.accessibilitySensory = updates.sensory;
+    if (updates.communication) next.accessibilityCommunication = updates.communication;
 
-    if (isSupabaseConfigured && supabase) {
-      await supabase
+    const client = db();
+    if (client) {
+      const { error } = await client
         .from("patients")
         .update({
-          accessibility_mobility: statePatient.accessibilityMobility,
-          accessibility_sensory: statePatient.accessibilitySensory,
-          accessibility_communication: statePatient.accessibilityCommunication
+          accessibility_mobility: next.accessibilityMobility,
+          accessibility_sensory: next.accessibilitySensory,
+          accessibility_communication: next.accessibilityCommunication
         })
         .eq("id", patientId);
+      if (error) {
+        console.warn("[careRepository] updateAccommodations DB error:", error.message);
+      } else {
+        // Re-read authoritative row from DB
+        return this.getPatientProfile(patientId);
+      }
     }
+    statePatient = next;
     return { ...statePatient };
   },
 
-  // 2. Appointments
-  async getAppointments(): Promise<Appointment[]> {
-    if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
+  // 2. Appointments (DB-backed)
+  async getAppointments(patientId: string = DEFAULT_PATIENT_ID): Promise<Appointment[]> {
+    const client = db();
+    if (client) {
+      const { data, error } = await client
         .from("appointments")
         .select("*")
+        .eq("patient_id", patientId)
         .order("created_at", { ascending: false });
       if (!error && data) {
-        return data.map((item) => ({
-          id: item.id,
-          patientId: item.patient_id,
-          practitionerId: item.practitioner_id,
-          doctorName: item.doctor_name,
-          facilityName: item.facility_name,
-          appointmentDate: item.appointment_date,
-          timeSlot: item.time_slot,
-          status: item.status,
-          accommodationNotes: item.accommodation_notes,
-          createdAt: item.created_at
-        }));
+        const mapped = data.map(mapAppointment);
+        stateAppointments = [...mapped];
+        return mapped;
       }
+      console.warn("[careRepository] getAppointments DB miss, using cache:", error?.message);
     }
     return [...stateAppointments];
   },
 
   async createAppointment(data: Omit<Appointment, "id" | "createdAt">): Promise<Appointment> {
-    const newAppointment: Appointment = {
-      ...data,
-      id: `appt-${Date.now()}`,
-      createdAt: new Date().toISOString()
-    };
-    stateAppointments = [newAppointment, ...stateAppointments];
-
-    if (isSupabaseConfigured && supabase) {
-      await supabase.from("appointments").insert({
-        id: newAppointment.id,
-        patient_id: newAppointment.patientId,
-        practitioner_id: newAppointment.practitionerId,
-        doctor_name: newAppointment.doctorName,
-        facility_name: newAppointment.facilityName,
-        appointment_date: newAppointment.appointmentDate,
-        time_slot: newAppointment.timeSlot,
-        status: newAppointment.status,
-        accommodation_notes: newAppointment.accommodationNotes
-      });
+    const id = `appt-${Date.now()}`;
+    const client = db();
+    if (client) {
+      const { data: row, error } = await client
+        .from("appointments")
+        .insert({
+          id,
+          patient_id: data.patientId,
+          practitioner_id: data.practitionerId || null,
+          doctor_name: data.doctorName,
+          facility_name: data.facilityName,
+          appointment_date: data.appointmentDate,
+          time_slot: data.timeSlot,
+          status: data.status,
+          accommodation_notes: data.accommodationNotes ?? null
+        })
+        .select()
+        .single();
+      if (!error && row) {
+        const mapped = mapAppointment(row);
+        stateAppointments = [mapped, ...stateAppointments];
+        return mapped;
+      }
+      console.warn("[careRepository] createAppointment DB error:", error?.message);
     }
-    return newAppointment;
+    const fallback: Appointment = { ...data, id, createdAt: new Date().toISOString() };
+    stateAppointments = [fallback, ...stateAppointments];
+    return fallback;
   },
 
-  // 3. Prescriptions & Refill Orders
-  async getPrescriptions(): Promise<Prescription[]> {
-    if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
+  // 3. Prescriptions & Refill Orders (DB-backed)
+  async getPrescriptions(patientId: string = DEFAULT_PATIENT_ID): Promise<Prescription[]> {
+    const client = db();
+    if (client) {
+      const { data, error } = await client
         .from("prescriptions")
         .select("*")
+        .eq("patient_id", patientId)
         .order("medication_name", { ascending: true });
       if (!error && data) {
-        return data.map((item) => ({
-          id: item.id,
-          patientId: item.patient_id,
-          medicationName: item.medication_name,
-          strength: item.strength,
-          rxNumber: item.rx_number,
-          refillsRemaining: item.refills_remaining,
-          prescribedBy: item.prescribed_by,
-          pharmacyName: item.pharmacy_name,
-          copay: item.copay,
-          status: item.status,
-          lastFilled: item.last_filled
-        }));
+        const mapped = data.map(mapPrescription);
+        statePrescriptions = [...mapped];
+        return mapped;
       }
+      console.warn("[careRepository] getPrescriptions DB miss, using cache:", error?.message);
     }
     return [...statePrescriptions];
+  },
+
+  async getPrescriptionById(prescriptionId: string): Promise<Prescription | null> {
+    const client = db();
+    if (client) {
+      const { data, error } = await client
+        .from("prescriptions")
+        .select("*")
+        .eq("id", prescriptionId)
+        .single();
+      if (!error && data) return mapPrescription(data);
+    }
+    return statePrescriptions.find((p) => p.id === prescriptionId) ?? null;
+  },
+
+  async getRefillOrders(patientId: string = DEFAULT_PATIENT_ID): Promise<RefillOrder[]> {
+    const client = db();
+    if (client) {
+      const { data, error } = await client
+        .from("refill_orders")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("requested_at", { ascending: false });
+      if (!error && data) {
+        const mapped = data.map(mapRefillOrder);
+        stateRefillOrders = [...mapped];
+        return mapped;
+      }
+      console.warn("[careRepository] getRefillOrders DB miss, using cache:", error?.message);
+    }
+    return [...stateRefillOrders];
   },
 
   async submitRefillOrder(orderData: {
@@ -354,105 +515,146 @@ export const careRepository = {
     medicationName: string;
     dosage: string;
     pharmacyId: string;
+    pharmacyName?: string;
   }): Promise<RefillOrder> {
-    const rx = statePrescriptions.find((p) => p.id === orderData.prescriptionId || p.medicationName.includes("Albuterol"));
+    // Resolve authoritative prescription row from DB (not stale local cache)
+    const rx =
+      (await this.getPrescriptionById(orderData.prescriptionId)) ??
+      (await this.getPrescriptions()).find((p) => p.medicationName.includes("Albuterol"));
+
+    const id = `ORD-${Date.now()}`;
     const newOrder: RefillOrder = {
-      id: `ORD-${Date.now()}`,
-      prescriptionId: rx?.id || "rx-albuterol",
-      patientId: statePatient.id,
+      id,
+      prescriptionId: rx?.id || orderData.prescriptionId || "rx-albuterol",
+      patientId: rx?.patientId || DEFAULT_PATIENT_ID,
       medicationName: orderData.medicationName,
       dosage: orderData.dosage,
       pharmacyId: orderData.pharmacyId,
-      pharmacyName: "Memorial Health Outpatient Pharmacy (Main Campus, Level 1)",
+      pharmacyName:
+        orderData.pharmacyName || "Memorial Health Outpatient Pharmacy (Main Campus, Level 1)",
       status: "ready",
       readyTime: "Today at 3:30 PM",
       copay: rx?.copay || "$15.00",
       requestedAt: new Date().toISOString()
     };
 
-    stateRefillOrders = [newOrder, ...stateRefillOrders];
-
-    // Decrement refill count in state
-    statePrescriptions = statePrescriptions.map((p) => {
-      if (p.id === rx?.id) {
-        return {
-          ...p,
-          refillsRemaining: Math.max(0, p.refillsRemaining - 1),
-          status: "in_transit"
-        };
-      }
-      return p;
-    });
-
-    if (isSupabaseConfigured && supabase) {
-      await supabase.from("refill_orders").insert({
-        id: newOrder.id,
-        prescription_id: newOrder.prescriptionId,
-        patient_id: newOrder.patientId,
-        medication_name: newOrder.medicationName,
-        dosage: newOrder.dosage,
-        pharmacy_id: newOrder.pharmacyId,
-        pharmacy_name: newOrder.pharmacyName,
-        status: newOrder.status,
-        ready_time: newOrder.readyTime,
-        copay: newOrder.copay
-      });
-
-      if (rx) {
-        await supabase
-          .from("prescriptions")
-          .update({
-            refills_remaining: Math.max(0, rx.refillsRemaining - 1),
-            status: "in_transit"
-          })
-          .eq("id", rx.id);
+    const client = db();
+    if (client) {
+      const { data: row, error } = await client
+        .from("refill_orders")
+        .insert({
+          id: newOrder.id,
+          prescription_id: newOrder.prescriptionId,
+          patient_id: newOrder.patientId,
+          medication_name: newOrder.medicationName,
+          dosage: newOrder.dosage,
+          pharmacy_id: newOrder.pharmacyId,
+          pharmacy_name: newOrder.pharmacyName,
+          status: newOrder.status,
+          ready_time: newOrder.readyTime,
+          copay: newOrder.copay
+        })
+        .select()
+        .single();
+      if (error) {
+        console.warn("[careRepository] submitRefillOrder insert error:", error.message);
+      } else if (row) {
+        const mapped = mapRefillOrder(row);
+        stateRefillOrders = [mapped, ...stateRefillOrders];
+        // Decrement refill count authoritatively in DB
+        if (rx) {
+          const nextCount = Math.max(0, rx.refillsRemaining - 1);
+          const { error: rxError } = await client
+            .from("prescriptions")
+            .update({ refills_remaining: nextCount, status: "in_transit" })
+            .eq("id", rx.id);
+          if (rxError) console.warn("[careRepository] refill rx update error:", rxError.message);
+          // Refresh prescription cache from DB
+          await this.getPrescriptions(newOrder.patientId);
+        }
+        return mapped;
       }
     }
 
+    // Offline fallback
+    stateRefillOrders = [newOrder, ...stateRefillOrders];
+    statePrescriptions = statePrescriptions.map((p) =>
+      p.id === rx?.id
+        ? { ...p, refillsRemaining: Math.max(0, p.refillsRemaining - 1), status: "in_transit" as const }
+        : p
+    );
     return newOrder;
   },
 
-  // 4. Practitioners & Clinics Directory
+  // 4. Practitioners & Clinics Directory (DB-backed, filters applied on DB rows)
   async getPractitioners(specialtyFilter?: string, accommodationFilter?: string[]): Promise<Practitioner[]> {
-    if (isSupabaseConfigured && supabase) {
-      let query = supabase.from("practitioners").select("*");
-      if (specialtyFilter) {
-        query = query.ilike("specialty", `%${specialtyFilter}%`);
+    const client = db();
+    if (client) {
+      let query = client.from("practitioners").select("*");
+      const specialty = (specialtyFilter || "").trim();
+      if (specialty) {
+        query = query.ilike("specialty", `%${specialty}%`);
       }
       const { data, error } = await query;
       if (!error && data) {
-        return data.map((item) => ({
-          id: item.id,
-          name: item.name,
-          title: item.title,
-          specialty: item.specialty,
-          facilityName: item.facility_name,
-          facilityAddress: item.facility_address,
-          distance: item.distance,
-          accommodations: item.accommodations,
-          availableSlots: item.available_slots
-        }));
+        const mapped = data.map(mapPractitioner);
+        statePractitioners = [...mapped];
+        // Accommodation arrays are filtered client-side over DB rows so the
+        // directory stays DB-sourced while supporting multi-tag matching.
+        // PostgREST `overlaps` would also work; JS keeps UX matching identical
+        // to the offline cache path.
+        const filtered = mapped.filter((p) => matchesAccommodations(p, accommodationFilter));
+        // If a specialty ilike missed by name (e.g. doctor name search),
+        // fall back to name match over the same DB rows.
+        if (specialty && filtered.length === 0) {
+          return mapped.filter(
+            (p) =>
+              p.name.toLowerCase().includes(specialty.toLowerCase()) &&
+              matchesAccommodations(p, accommodationFilter)
+          );
+        }
+        return filtered;
       }
+      console.warn("[careRepository] getPractitioners DB miss, using cache:", error?.message);
     }
 
     let results = [...statePractitioners];
-    if (specialtyFilter) {
-      results = results.filter((p) =>
-        p.specialty.toLowerCase().includes(specialtyFilter.toLowerCase()) ||
-        p.name.toLowerCase().includes(specialtyFilter.toLowerCase())
+    const specialty = (specialtyFilter || "").trim();
+    if (specialty) {
+      results = results.filter(
+        (p) =>
+          p.specialty.toLowerCase().includes(specialty.toLowerCase()) ||
+          p.name.toLowerCase().includes(specialty.toLowerCase())
       );
     }
-    if (accommodationFilter && accommodationFilter.length > 0) {
-      results = results.filter((p) =>
-        accommodationFilter.some((acc) =>
-          p.accommodations.some((pAcc) => pAcc.toLowerCase().includes(acc.toLowerCase()))
-        )
-      );
-    }
+    results = results.filter((p) => matchesAccommodations(p, accommodationFilter));
     return results;
   },
 
-  // 5. Triage Assessments
+  // 5. Triage Assessments (DB-backed)
+  async getTriageAssessments(patientId: string = DEFAULT_PATIENT_ID): Promise<TriageAssessment[]> {
+    const client = db();
+    if (client) {
+      const { data, error } = await client
+        .from("triage_assessments")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false });
+      if (!error && data) {
+        const mapped = data.map(mapTriage);
+        stateTriageAssessments = [...mapped];
+        return mapped;
+      }
+      console.warn("[careRepository] getTriageAssessments DB miss, using cache:", error?.message);
+    }
+    return [...stateTriageAssessments];
+  },
+
+  async getLatestTriageAssessment(patientId: string = DEFAULT_PATIENT_ID): Promise<TriageAssessment | null> {
+    const all = await this.getTriageAssessments(patientId);
+    return all[0] ?? null;
+  },
+
   async submitTriageAssessment(data: {
     symptoms: string;
     bodyRegion: string;
@@ -460,13 +662,43 @@ export const careRepository = {
     urgency: "ROUTINE" | "URGENT" | "EMERGENCY";
   }): Promise<TriageAssessment> {
     const isUrgent = data.urgency === "URGENT" || data.painLevel >= 7;
-    const specialty = data.bodyRegion.includes("Knee") || data.bodyRegion.includes("Musculoskeletal")
-      ? "Orthopedic Physical Therapy & Sports Medicine"
-      : "Internal Medicine & Specialty Care";
+    const specialty =
+      data.bodyRegion.includes("Knee") || data.bodyRegion.includes("Musculoskeletal")
+        ? "Orthopedic Physical Therapy & Sports Medicine"
+        : "Internal Medicine & Specialty Care";
 
-    const assessment: TriageAssessment = {
-      id: `TRG-${Date.now()}`,
-      patientId: statePatient.id,
+    const id = `TRG-${Date.now()}`;
+    const patientId = statePatient.id || DEFAULT_PATIENT_ID;
+    const client = db();
+    if (client) {
+      const { data: row, error } = await client
+        .from("triage_assessments")
+        .insert({
+          id,
+          patient_id: patientId,
+          symptoms: data.symptoms,
+          body_region: data.bodyRegion,
+          pain_level: data.painLevel,
+          urgency: data.urgency,
+          recommended_specialty: specialty,
+          clinical_advice: isUrgent
+            ? "Clinical protocol recommends in-person physical evaluation within 24–48 hours due to reported acute joint swelling and pain rating."
+            : "Standard routine consultation recommended within 5 business days. Apply cold compress and elevate affected limb.",
+          recommended_clinic: "Memorial Pavilion & Physical Rehabilitation (Suite 4B)"
+        })
+        .select()
+        .single();
+      if (!error && row) {
+        const mapped = mapTriage(row);
+        stateTriageAssessments = [mapped, ...stateTriageAssessments];
+        return mapped;
+      }
+      console.warn("[careRepository] submitTriageAssessment DB error:", error?.message);
+    }
+
+    const fallback: TriageAssessment = {
+      id,
+      patientId,
       symptoms: data.symptoms,
       bodyRegion: data.bodyRegion,
       painLevel: data.painLevel,
@@ -478,47 +710,26 @@ export const careRepository = {
       recommendedClinic: "Memorial Pavilion & Physical Rehabilitation (Suite 4B)",
       createdAt: new Date().toISOString()
     };
-
-    stateTriageAssessments = [assessment, ...stateTriageAssessments];
-
-    if (isSupabaseConfigured && supabase) {
-      await supabase.from("triage_assessments").insert({
-        id: assessment.id,
-        patient_id: assessment.patientId,
-        symptoms: assessment.symptoms,
-        body_region: assessment.bodyRegion,
-        pain_level: assessment.painLevel,
-        urgency: assessment.urgency,
-        recommended_specialty: assessment.recommendedSpecialty,
-        clinical_advice: assessment.clinicalAdvice,
-        recommended_clinic: assessment.recommendedClinic
-      });
-    }
-
-    return assessment;
+    stateTriageAssessments = [fallback, ...stateTriageAssessments];
+    return fallback;
   },
 
-  // 6. Patient Vitals
-  async getVitals(): Promise<PatientVitals> {
-    if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
+  // 6. Patient Vitals (DB-backed)
+  async getVitals(patientId: string = DEFAULT_PATIENT_ID): Promise<PatientVitals> {
+    const client = db();
+    if (client) {
+      const { data, error } = await client
         .from("patient_vitals")
         .select("*")
+        .eq("patient_id", patientId)
         .order("recorded_at", { ascending: false })
         .limit(1)
         .single();
       if (!error && data) {
-        return {
-          id: data.id,
-          patientId: data.patient_id,
-          bloodPressure: data.blood_pressure,
-          heartRate: data.heart_rate,
-          oxygenSaturation: data.oxygen_saturation,
-          respiratoryRate: data.respiratory_rate,
-          recordedAt: new Date(data.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
+        return mapVitals(data);
       }
+      console.warn("[careRepository] getVitals DB miss, using cache:", error?.message);
     }
-    return initialVitals;
+    return { ...initialVitals };
   }
 };

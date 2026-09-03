@@ -7,7 +7,13 @@ export function isMacOS(): boolean {
   return /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform || navigator.userAgent);
 }
 
-export function getPlatformShortcut(key: "A" | "D"): { modifier: string; symbol: string; label: string } {
+export interface PlatformShortcut {
+  modifier: string;
+  symbol: string;
+  label: string;
+}
+
+export function getPlatformShortcut(key: "A" | "D"): PlatformShortcut {
   const mac = isMacOS();
   return {
     modifier: mac ? "Option" : "Alt",
@@ -15,3 +21,13 @@ export function getPlatformShortcut(key: "A" | "D"): { modifier: string; symbol:
     label: mac ? `Option + ${key}` : `Alt + ${key}`
   };
 }
+
+/**
+ * SSR-safe shortcut fallback: server and first client render agree on the
+ * non-Mac label, so React hydration never mismatches across platforms.
+ * Use inside components instead of calling getPlatformShortcut at render.
+ */
+export const SSR_SHORTCUT_FALLBACK: Record<"A" | "D", PlatformShortcut> = {
+  A: { modifier: "Alt", symbol: "Alt + A", label: "Alt + A" },
+  D: { modifier: "Alt", symbol: "Alt + D", label: "Alt + D" }
+};

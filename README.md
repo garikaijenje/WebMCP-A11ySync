@@ -255,7 +255,7 @@ interface ToolAccessibilityMetadata {
 ## Verification & Testing
 
 ```bash
-# Run unit tests across all packages
+# Run unit + component tests across all packages (vitest)
 bun run test
 
 # Run TypeScript type-checking across monorepo
@@ -267,6 +267,23 @@ bun run lint
 # Build production bundles (ESM, CJS, standalone IIFE, Next.js)
 bun run build
 ```
+
+### CareNavigator web app test layers (`apps/web`)
+
+| Layer | Location | Command | What it guards |
+|---|---|---|---|
+| Unit (repository) | `test/careRepository.test.ts` | `bun run test` | DB mappers, triage logic, filters — hermetically mocked, never touches live data |
+| Component / UI | `test/ui/*.test.tsx` | `bun run test` | Every view, combobox, multi-select, sidebar, display settings (testing-library + happy-dom) |
+| Anchor contract | `test/ui/anchors.test.ts` | `bun run test` | Fails fast if a redesign drops a WebMCP engine DOM anchor ID |
+| E2E (Chromium) | `e2e/*.spec.ts` | `bun run test:e2e` | Full journeys against the seeded project: smoke + clean console, anchors in DOM, provider filter, booking dialog, triage submit, refill submit, display settings |
+
+Supabase connection for the app and e2e comes from the CLI (`bun run supabase:sync`
+reads the linked project's publishable key via `supabase projects api-keys` — no
+`.env` files). Write specs (`triage`, `meds`) clean up in `finally`, and
+`e2e/global-teardown.ts` sweeps `refill_orders` / `triage_assessments` and restores
+the seed prescription, asserting pristine counts (`appointments: 1, prescriptions: 3,
+refillOrders: 0, triage: 0`). First run needs `bunx playwright install chromium` and
+`bunx supabase login`.
 
 ---
 

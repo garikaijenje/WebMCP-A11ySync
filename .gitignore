@@ -20,6 +20,10 @@ out/
 coverage/
 .vitest/
 
+# Playwright e2e artifacts
+playwright-report/
+test-results/
+
 # Environment Variables & Local Overrides (never commit secrets)
 .env
 .env*.local
@@ -27,6 +31,9 @@ coverage/
 .env.test.local
 .env.production.local
 !.env.example
+
+# Supabase CLI-synced app config (generated via `bun run supabase:sync`)
+apps/web/lib/supabaseConfig.generated.ts
 
 # Supabase CLI Local State
 supabase/.temp/

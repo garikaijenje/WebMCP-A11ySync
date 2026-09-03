@@ -3,10 +3,11 @@
 import React, { useState } from "react";
 import { useA11ySync } from "./provider";
 import { ATPersonaMode } from "@a11ysync/core";
-import { getPlatformShortcut } from "./utils";
+import { usePlatformShortcut } from "./usePlatformShortcut";
 
 export const A11ySyncDrawer: React.FC = () => {
-  const shortcut = getPlatformShortcut("D");
+  const shortcut = usePlatformShortcut("D");
+  const paletteShortcut = usePlatformShortcut("A");
   const {
     isDrawerOpen,
     setIsDrawerOpen,
@@ -187,7 +188,7 @@ export const A11ySyncDrawer: React.FC = () => {
                 onClick={() => engine?.getPalette().open()}
                 className="w-full rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-medium py-2 text-xs transition-colors cursor-pointer"
               >
-                Open Assistive Command Palette ({getPlatformShortcut("A").label})
+                Open Assistive Command Palette ({paletteShortcut.label})
               </button>
             </div>
           </div>

@@ -2,11 +2,11 @@
 
 import React from "react";
 import { useA11ySync } from "./provider";
-import { getPlatformShortcut } from "./utils";
+import { usePlatformShortcut } from "./usePlatformShortcut";
 
 export const A11ySyncHUD: React.FC = () => {
   const { tools, speechEnabled, setSpeechEnabled, setIsDrawerOpen, telemetryLogs } = useA11ySync();
-  const shortcut = getPlatformShortcut("D");
+  const shortcut = usePlatformShortcut("D");
 
   const recentEvent = telemetryLogs[0];
   const isFlashing = recentEvent && (Date.now() - recentEvent.timestamp < 2000);
